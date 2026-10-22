@@ -20,9 +20,14 @@ The app works with any MIDI keyboard (Web MIDI works in Chrome, Edge and Opera),
 
 The public version includes public-domain pieces only:
 
+- Christian Petzold: Minuet in G (from the Notebook for Anna Magdalena Bach)
+- Robert Schumann: The Happy Farmer
 - J. S. Bach: Prelude in C major
-- Frédéric Chopin: Waltz in A minor
+- Ludwig van Beethoven: Für Elise
 - Erik Satie: Gnossienne No. 1
+- Frédéric Chopin: Waltz in A minor
+- Ludwig van Beethoven: Moonlight Sonata, 1st movement
+- Claude Debussy: Clair de lune
 
 ## Running it locally
 

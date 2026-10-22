@@ -12,12 +12,12 @@
 //   'E4/1:q A4/5'            /1../5 after a pitch fixes its finger (1 = thumb); the rest is worked out (js/fingering.js)
 //   'C5:g B4:h'              :g = grace note: a quick note squeezed in before the next one (it takes GRACE beats of its time)
 //
-// Lengths: w (whole) h (half) q (quarter) e (eighth) s (sixteenth), t = triplet (e.g. et = triplet eighth), a digit
+// Lengths: w (whole) h (half) q (quarter) e (eighth) s (sixteenth) x (thirty-second), t = triplet (e.g. et = triplet eighth), a digit
 // = other tuplets (s5 = quintuplet sixteenth: five in one beat; e6 = six eighths in the time of four).
 // Pitches: letter, optional # or b, octave (C4 = middle C). Times are counted in quarter notes ("beats").
 // A hand left out (or '') rests for the bar.
 const SONGS = [];
-const DUR = { w: 4, h: 2, q: 1, e: 0.5, s: 0.25 };
+const DUR = { w: 4, h: 2, q: 1, e: 0.5, s: 0.25, x: 0.125 };
 const LETTER = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const GRACE = 0.125; // beats a grace note takes from the note after it
 
@@ -27,7 +27,7 @@ function parsePitch(p) {
   return 12 * (+m[3] + 1) + LETTER[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
 }
 function parseDur(d) {
-  const m = /^([whqes])(t|[2-9])?(\.*)$/.exec(d);
+  const m = /^([whqesx])(t|[2-9])?(\.*)$/.exec(d);
   if (!m) throw new Error(`bad length "${d}"`);
   // t = triplet (3 in the time of 2); a digit n = n-tuplet in the time of the power of two below it (s5: 5 in 4)
   const n = m[2] === 't' ? 3 : m[2] ? +m[2] : 0;
@@ -66,7 +66,7 @@ function addSong(def) {
             p = p.replace(/\/[1-5]/, '');
             const tie = tieAll || p.endsWith('~');
             const midi = parsePitch(p.replace(/~$/, ''));
-            const prev = ends.get(midi) || pending[hand].get(midi);
+            const prev = ends.has(midi) ? ends.get(midi) : pending[hand].get(midi); // a key played again in this bar is not tied
             let note;
             if (prev && Math.abs(prev.start + prev.dur - t) < 1e-6) { prev.dur += dur; note = prev; }
             else { note = { midi, hand, start: t, dur, bar: i + 1 }; song.notes.push(note); }
