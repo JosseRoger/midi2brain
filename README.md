@@ -4,7 +4,7 @@ A free piano trainer that runs in your browser. Learn chords, inversions, scales
 
 Try it now at midi2brain.com (https://midi2brain.com)
 
-<!-- TODO: add a screenshot or GIF of the falling notes here -->
+![midi2brain playing Bach's Prelude in C: notes fall onto the keyboard with their fingering](demo.gif)
 
 ## What it does
 
