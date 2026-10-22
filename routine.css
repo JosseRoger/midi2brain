@@ -1,0 +1,91 @@
+/* ---------- practice routine (js/routine.js): the Routine tab and the bar shown on every tab while it runs ---------- */
+#routine-view { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 16px; }
+#routine-view[hidden], #routine-setup[hidden], #routine-summary[hidden], #routine-bar[hidden] { display: none; }
+#routine-setup, #routine-summary { display: flex; flex-direction: column; gap: 14px; }
+.routine-head h2 { margin: 0 0 6px; font-size: clamp(1.4rem, 4vw, 2rem); letter-spacing: -0.02em; }
+.routine-head p, .routine-note, .routine-rules, .routine-empty { margin: 0; font-size: .86rem; line-height: 1.5; color: var(--muted); }
+.routine-note b { color: var(--ink); }
+
+/* songs to pick */
+#routine-songs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.routine-song { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); cursor: pointer; -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
+html.lite .routine-song { -webkit-backdrop-filter: none; backdrop-filter: none; }
+.routine-song.on { border-color: var(--accent); }
+.routine-song:has(input:disabled) { opacity: .55; cursor: default; }
+.routine-song input { margin-top: 3px; accent-color: var(--accent); flex: none; }
+.routine-song-main { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.routine-song-main b { font-size: .95rem; }
+.routine-song-main small { font-size: .74rem; color: var(--muted); }
+.routine-level { font-size: .74rem; font-weight: 700; text-transform: lowercase; }
+.routine-level.level-new { color: var(--tgt-root); }
+.routine-level.level-hands { color: var(--tgt); }
+.routine-level.level-known { color: var(--ok); }
+.routine-prog { font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.routine-calibrate { flex: none; padding: 4px 8px !important; font-size: .7rem !important; }
+
+/* time */
+.routine-durations { display: flex; flex-wrap: wrap; gap: 8px; }
+.routine-durations button[aria-pressed="true"] { background: var(--ink) !important; border-color: var(--ink) !important; color: var(--bg) !important; }
+
+/* the plan */
+.routine-plan-list { margin: 0 0 8px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: step; }
+.routine-plan-list li { display: grid; grid-template-columns: 4.2em 1fr; gap: 2px 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
+html.lite .routine-plan-list li { -webkit-backdrop-filter: none; backdrop-filter: none; }
+.routine-plan-list li b { font-size: .88rem; }
+.routine-plan-list li > span:last-child { grid-column: 2; font-size: .8rem; line-height: 1.45; color: var(--muted); }
+.routine-plan-min { grid-row: span 2; font-size: .8rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); }
+#routine-start { align-self: flex-start; min-width: 180px; background: var(--accent) !important; border-color: var(--accent) !important; color: var(--accent-ink, var(--bg)) !important; }
+#routine-start:disabled { opacity: .45; cursor: default; }
+
+/* the summary */
+.routine-result { padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.routine-result-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.routine-result p { margin: 4px 0 0; font-size: .82rem; line-height: 1.45; color: var(--muted); }
+.routine-score { font-size: 1.1rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+.routine-score b { color: var(--ink); font-size: 1.3rem; }
+#routine-again { align-self: flex-start; }
+
+/* the bar: stays at the top while you scroll */
+#routine-bar { position: sticky; top: 8px; z-index: 30; width: 100%; max-width: 900px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px 18px; padding: 10px 14px; flex-wrap: wrap;
+  border: 1px solid var(--accent); border-radius: var(--radius); background: color-mix(in srgb, var(--card) 88%, var(--bg));
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
+#routine-bar.paused { border-color: var(--line-strong); opacity: .85; }
+#routine-bar-text { flex: 1 1 320px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#routine-bar-phase { font-size: .7rem; color: var(--muted); text-transform: lowercase; letter-spacing: .04em; }
+#routine-bar-title { font-size: .95rem; }
+#routine-bar-tip { font-size: .78rem; line-height: 1.4; color: var(--muted); }
+#routine-bar-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+#routine-bar-count { font-size: .8rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+#routine-bar-time { font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+#routine-bar-time.over { color: var(--bad); }
+.routine-bar-btns { display: flex; gap: 6px; }
+.routine-bar-btns .action-btn { padding: 4px 10px; font-size: .74rem; }
+@media (max-width: 560px) { #routine-bar-side { align-items: flex-start; } }
+
+/* the beta label next to the logo */
+.beta-tag { font-size: .4em; vertical-align: super; padding: 2px 6px; border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); letter-spacing: .05em; }
+
+/* another song in the routine (js/routine.js songIntro): its name in the middle of the screen, the notes slide in */
+.routine-song-card { position: fixed; left: 50%; top: 42%; z-index: 100; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  max-width: calc(100vw - 32px); padding: 22px 36px; text-align: center; pointer-events: none;
+  border: 1px solid var(--accent); border-radius: var(--radius); background: color-mix(in srgb, var(--card), var(--bg) 35%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); box-shadow: 0 24px 70px rgba(0,0,0,.35);
+  animation: routine-song-card 2.6s cubic-bezier(.3, 0, .2, 1) forwards; }
+.routine-song-card small { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.routine-song-card b { font-size: clamp(1.5rem, 5vw, 2.4rem); letter-spacing: -0.02em; color: var(--ink); }
+.routine-song-card span { font-size: .85rem; color: var(--muted); }
+@keyframes routine-song-card {
+  0% { opacity: 0; transform: translate(-50%, -40%) scale(.9); }
+  14%, 72% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -62%) scale(1.03); }
+}
+#songs-view.routine-switch #song-kbd-frame, #songs-view.routine-switch #song-stage { animation: routine-switch 1s cubic-bezier(.3, 0, .2, 1) .35s backwards; }
+@keyframes routine-switch { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .routine-song-card { animation-name: routine-song-fade; }
+  @keyframes routine-song-fade { 0%, 100% { opacity: 0; transform: translate(-50%, -50%); } 15%, 75% { opacity: 1; transform: translate(-50%, -50%); } }
+  #songs-view.routine-switch #song-kbd-frame, #songs-view.routine-switch #song-stage { animation: none; }
+}

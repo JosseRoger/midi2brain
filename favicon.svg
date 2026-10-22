@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- midi2brain icon in the restyled look (Ember palette): near-black tile with a teal haze and a burnt-orange glow
+       rising from below, a little film grain, and three cream keys with the middle one lit in teal. -->
+  <defs>
+    <radialGradient id="haze" cx="18%" cy="20%" r="70%">
+      <stop offset="0" stop-color="#1f5a5c"/>
+      <stop offset="1" stop-color="#1f5a5c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="62%" cy="108%" r="62%">
+      <stop offset="0" stop-color="#f3a868"/>
+      <stop offset=".35" stop-color="#e8602a"/>
+      <stop offset=".7" stop-color="#b3231a" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#b3231a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6fb3ac"/>
+      <stop offset="1" stop-color="#3d8a84"/>
+    </linearGradient>
+    <linearGradient id="key" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6dfd1"/>
+      <stop offset="1" stop-color="#cbc3b4"/>
+    </linearGradient>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .22 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+    <clipPath id="tile"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="64" height="64" fill="#0b0f12"/>
+    <rect width="64" height="64" fill="url(#haze)"/>
+    <rect width="64" height="64" fill="url(#glow)"/>
+    <rect width="64" height="64" fill="#000" filter="url(#grain)"/>
+  </g>
+  <!-- keys -->
+  <rect x="11" y="13" width="13" height="37" rx="2.5" fill="url(#key)"/>
+  <rect x="25.5" y="13" width="13" height="37" rx="2.5" fill="url(#lit)"/>
+  <rect x="40" y="13" width="13" height="37" rx="2.5" fill="url(#key)"/>
+  <rect x="19.75" y="13" width="7.5" height="21" rx="1.5" fill="#10141a"/>
+  <rect x="36.75" y="13" width="7.5" height="21" rx="1.5" fill="#10141a"/>
+</svg>

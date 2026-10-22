@@ -1,0 +1,259 @@
+/* Songs tab (js/songs.js): library, practice transport, falling notes, bar pool, song guide. Loaded after styles.css
+   and theme.css; uses the same palette tokens, so every palette works. Key looks (.k …) come from those files. */
+
+#songs-view, #song-library-view, #song-practice-view, #song-guide-view { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 16px; }
+#songs-view[hidden], #song-library-view[hidden], #song-practice-view[hidden], #song-guide-view[hidden] { display: none; }
+
+/* sub-tabs, like the theory topic tabs */
+#song-tabs { display: flex; gap: 0; width: 100%; overflow-x: auto; border-bottom: 1.5px solid var(--line-strong); scrollbar-width: thin; }
+#song-tabs button { flex: 1 0 auto; min-height: 40px; padding: 8px 12px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); font: inherit; font-size: .8rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; cursor: pointer; }
+#song-tabs button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--ink); }
+#song-tabs button:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+
+/* glass surfaces, like the panels in theme.css */
+#song-stage, .song-card, #song-bar-pool, #song-guide-facts .guide-dl {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
+}
+html.lite .song-card, html.lite #song-bar-pool, html.lite #song-guide-facts .guide-dl, html.lite #song-stage:not(.ok):not(.bad) {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: color-mix(in srgb, var(--card), var(--bg) 45%); border-color: var(--line-strong);
+}
+html.lite #song-stage { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* ---------- library ---------- */
+#song-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+/* level headings (renderLibrary groups the songs by difficulty) span the whole row */
+.song-level-head { grid-column: 1 / -1; margin-top: 10px; }
+.song-level-head:first-child { margin-top: 0; }
+/* the songs the C – E – D secret shows (renderLibrary) pop in, one after another */
+.song-card-reveal { animation: song-reveal .55s cubic-bezier(.2, 1.5, .4, 1) both; }
+.song-card-reveal:nth-child(2n) { animation-delay: .08s; }
+.song-card-reveal:nth-child(3n) { animation-delay: .16s; }
+.song-card-reveal:nth-child(5n) { animation-delay: .24s; }
+@keyframes song-reveal { from { opacity: 0; transform: scale(.6) translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .song-card-reveal { animation: none; } }
+/* align-items: older Chromium (e.g. the desktop app's Electron) gives buttons flex-start, which shrinks the progress bars to nothing */
+.song-card { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 16px 18px; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+  transition: border-color .15s ease, transform .15s ease; }
+.song-card:hover, .song-card:focus-visible { border-color: var(--accent); outline: none; }
+.song-card.current { border-color: var(--line-strong); }
+/* the ▶ extract button sits in the card's top-right corner (a sibling: a button can't hold a button) */
+.song-card-wrap { position: relative; display: flex; }
+.song-card-wrap .song-card { flex: 1; padding-right: 58px; }
+.song-card-play { position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; padding: 0; display: grid; place-items: center; border-radius: 50%;
+  border: 1px solid var(--line-strong); background: color-mix(in srgb, var(--bg) 40%, transparent); color: var(--ink); cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease; }
+.song-card-play svg { width: 16px; height: 16px; fill: currentColor; }
+.song-card-play .i-stop { display: none; }
+.song-card-play.playing .i-play { display: none; }
+.song-card-play.playing .i-stop { display: inline; }
+.song-card-play:hover, .song-card-play:focus-visible, .song-card-play.playing { border-color: var(--accent); background: var(--accent); color: var(--accent-ink, var(--bg)); outline: none; }
+.song-card-play:hover { transform: scale(1.06); }
+.song-card-play.playing { animation: song-card-pulse 1.6s ease-in-out infinite; }
+@keyframes song-card-pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .song-card-play.playing { animation: none; } }
+.song-title { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
+.song-from { font-size: .85rem; color: var(--muted); }
+.song-from em { font-style: normal; opacity: .8; }
+.song-facts { font-size: .74rem; color: var(--muted); text-transform: lowercase; letter-spacing: .03em; margin-bottom: 4px; }
+.song-prog { display: grid; grid-template-columns: 42px 1fr 36px; align-items: center; gap: 8px; font-size: .7rem; color: var(--muted); text-transform: lowercase; }
+.song-prog b { text-align: right; font-weight: 700; color: var(--ink); }
+.song-prog-track { height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 12%, transparent); overflow: hidden; }
+.song-prog-track i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.library-note { margin: 0; font-size: .82rem; line-height: 1.45; color: var(--muted); }
+
+/* ---------- stage ---------- */
+#song-stage {
+  width: 100%; min-height: 190px; box-sizing: border-box; padding: 12px 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+#song-stage.ok { background: linear-gradient(color-mix(in srgb, var(--ok) 26%, var(--card)), color-mix(in srgb, var(--ok) 32%, var(--card))); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+#song-stage.bad { background: linear-gradient(color-mix(in srgb, var(--bad) 28%, var(--card)), color-mix(in srgb, var(--bad) 34%, var(--card))); border-color: color-mix(in srgb, var(--bad) 35%, var(--line)); }
+#song-stage-top { width: 100%; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: .74rem; color: var(--muted); text-transform: lowercase; letter-spacing: .04em; }
+#song-stage-pos { font-variant-numeric: tabular-nums; }
+#song-stage-notes { margin: 6px 0 0; font-size: clamp(1.8rem, 6vh, 3.6rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+#song-stage-notes .hand-rh { color: color-mix(in srgb, var(--key-tgt) 70%, var(--ink)); }
+#song-stage-notes .hand-lh { color: color-mix(in srgb, var(--glow-2) 75%, var(--ink)); }
+#song-stage-notes .hand-sep { color: var(--muted); font-weight: 400; }
+#song-stage-hint { margin: 0; font-size: .95rem; opacity: .85; }
+#song-stage-tip { margin: 6px 0 0; max-width: 64ch; font-size: .82rem; line-height: 1.45; color: var(--muted); }
+#song-stage.ok #song-stage-tip, #song-stage.bad #song-stage-tip { color: var(--ink); }
+
+/* ---------- take report (under the stage, when a song ends) ---------- */
+#song-report[hidden] { display: none; }
+#song-report .report-head { display: flex; align-items: center; gap: 12px; }
+#song-report .report-head .section-head { flex: 1; }
+#song-report-close { background: none; border: 0; padding: 0 4px; font: inherit; font-size: 1.3rem; line-height: 1; color: var(--muted); cursor: pointer; }
+#song-report-close:hover { color: var(--ink); }
+#song-report-body { display: flex; flex-direction: column; gap: 12px; }
+.report-score { display: flex; align-items: center; gap: 16px; }
+.report-score b { font-size: clamp(2.4rem, 7vw, 3.4rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.report-score span { font-size: .82rem; line-height: 1.45; color: var(--muted); text-transform: lowercase; }
+.report-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.report-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 1px solid var(--line); border-radius: var(--radius); }
+.report-stat b { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.report-stat span { font-size: .7rem; color: var(--muted); text-transform: lowercase; letter-spacing: .03em; }
+.report-stat.ok b { color: var(--ok); }
+.report-stat.bad b { color: var(--bad); }
+.report-note { margin: 0; font-size: .85rem; line-height: 1.45; }
+.report-note span { color: var(--muted); font-size: .78rem; }
+.report-bars { display: flex; flex-direction: column; gap: 6px; }
+/* align-items / text-align: the desktop app's older Chromium centres button content otherwise */
+.report-bar { display: flex; align-items: baseline; gap: 12px; text-align: left; padding: 6px 10px; font: inherit; font-size: .8rem; color: var(--ink);
+  background: none; border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
+.report-bar:hover, .report-bar:focus-visible { border-color: var(--accent); outline: none; }
+.report-bar b { flex: none; min-width: 4.5em; font-weight: 800; }
+.report-bar span { color: var(--muted); line-height: 1.4; }
+@media (max-width: 520px) { .report-stats { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---------- practice layout: play controls → how you practise → notes + keys → Show / Sound cards → sections & bars */
+/* 1. play controls */
+#song-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.song-btns { display: flex; gap: 8px; }
+#song-btn-play { min-width: 96px; background: var(--accent) !important; border-color: var(--accent) !important; color: var(--accent-ink, var(--bg)) !important; }
+#song-btn-play[aria-pressed="true"], #song-btn-hear[aria-pressed="true"] { background: var(--ink) !important; border-color: var(--ink) !important; color: var(--bg) !important; }
+/* 2. how you practise: labelled groups */
+#song-practice-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; padding-bottom: 2px; }
+.song-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.song-field-label { min-width: 4.6em; font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+/* 4. option cards */
+#song-options { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.song-opt-card { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
+html.lite .song-opt-card { -webkit-backdrop-filter: none; backdrop-filter: none; background: color-mix(in srgb, var(--card), var(--bg) 45%); border-color: var(--line-strong); }
+.song-opt-card .section-head { margin: 0; }
+.song-opt-card .toggle-label-row { font-size: .82rem; }
+/* 5. sections, loop, bars */
+/* the start / restart MIDI button (js/midi.js) */
+.song-midi-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+#song-midi-btn-name { flex: 1; font-size: .88rem; font-weight: 600; }
+#song-midi-btn-learn[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 1px; }
+#song-midi-btn .bar-note { margin: 0; }
+#song-where { display: flex; flex-direction: column; gap: 10px; }
+#song-loop-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+@media (max-width: 640px) { #song-options { grid-template-columns: 1fr; } }
+/* same look as .volume-row (not that class: js/info.js puts the Volume info button on the first .volume-row) */
+#song-speed-row { display: flex; align-items: center; gap: 10px; font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+#song-speed-row input { width: 120px; accent-color: var(--accent); }
+#song-speed-row output { min-width: 3em; font-variant-numeric: tabular-nums; color: var(--ink); }
+#song-loop-range { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); }
+#song-loop-range select { padding: 4px 8px; }
+#song-beat-dots { display: inline-flex; gap: 6px; margin-left: auto; }
+#song-beat-dots i { width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 18%, transparent); transition: background-color .08s ease, transform .08s ease; }
+#song-beat-dots i:first-child { width: 11px; height: 11px; }
+#song-beat-dots i.on { background: var(--accent); transform: scale(1.25); }
+
+/* ---------- falling notes + keyboard ---------- */
+/* .song-resize: grab zones 40px wide, 12px outside the outline and 28px inside it; the grip sits on the outline */
+/* --song-kbd-w / --song-kbd-h: set by dragging the .song-resize handles (js/songs.js). Wider than the 900px column
+   is fine: align-self centre lets it grow out on both sides. */
+#song-kbd-frame { position: relative; z-index: 26; width: var(--song-kbd-w, 100%); max-width: calc(100vw - 32px); align-self: center; }
+.song-resize { position: absolute; z-index: 2; touch-action: none; }
+.song-resize[data-edge="left"], .song-resize[data-edge="right"] { top: 0; bottom: 0; width: 40px; cursor: ew-resize; }
+.song-resize[data-edge="left"] { left: -12px; }
+.song-resize[data-edge="right"] { right: -12px; }
+.song-resize[data-edge="top"], .song-resize[data-edge="bottom"] { left: 28px; right: 28px; height: 40px; cursor: ns-resize; }
+.song-resize[data-edge="top"] { top: -12px; }
+.song-resize[data-edge="bottom"] { bottom: -12px; }
+.song-resize::after { content: ''; position: absolute; border-radius: 4px; background: color-mix(in srgb, var(--ink) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg) 60%, transparent); opacity: .75; transition: opacity .15s ease, background-color .15s ease, box-shadow .15s ease; }
+.song-resize[data-edge="left"]::after, .song-resize[data-edge="right"]::after { top: 50%; width: 6px; height: 64px; transform: translateY(-50%); }
+.song-resize[data-edge="top"]::after, .song-resize[data-edge="bottom"]::after { left: 50%; height: 6px; width: 64px; transform: translateX(-50%); }
+.song-resize[data-edge="left"]::after { left: 9px; }
+.song-resize[data-edge="right"]::after { right: 9px; }
+.song-resize[data-edge="top"]::after { top: 9px; }
+.song-resize[data-edge="bottom"]::after { bottom: 9px; }
+#song-kbd-frame:hover .song-resize::after { opacity: 1; }
+.song-resize:hover::after, .song-resize.dragging::after { opacity: 1; background: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg) 60%, transparent), 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent); }
+body.song-resizing, body.song-resizing * { user-select: none; }
+@media (max-width: 640px), (pointer: coarse) {
+  #song-kbd-frame { width: 100%; --song-kbd-h: 1 !important; }
+  .song-resize { display: none; }
+}
+/* z-index 26: above the grain layer, like #kbd-wrap (theme.css) */
+#song-kbd-wrap { position: relative; z-index: 26; width: 100%; overflow-x: auto; display: flex; flex-direction: column;
+  border: 1px solid var(--line-strong); border-radius: var(--radius); background: color-mix(in srgb, var(--bg) 55%, transparent);
+  scrollbar-width: thin; scrollbar-color: var(--line-strong) var(--card); -webkit-overflow-scrolling: touch; }
+#song-roll { display: block; height: calc(280px * var(--song-kbd-h, 1)); flex: none; cursor: grab; touch-action: none; } /* drag / wheel to scrub (js/songs.js) */
+#song-roll.scrubbing { cursor: grabbing; }
+#song-kbd { position: relative; height: calc(140px * var(--song-kbd-h, 1)); width: 100%; flex: none; }
+/* left hand targets in the warm glow colour (right hand keeps theme.css's teal) */
+#song-kbd .k.w.tgt.lh { background: color-mix(in srgb, var(--glow-2) 72%, var(--key-white)) !important; }
+#song-kbd .k.b.tgt.lh { background: color-mix(in srgb, var(--glow-2) 80%, var(--key-black)) !important; }
+/* the hand you are not practising: just a tint */
+#song-kbd .k.w.tgt.ghost.rh { background: color-mix(in srgb, var(--key-tgt) 28%, var(--key-white)) !important; }
+#song-kbd .k.w.tgt.ghost.lh { background: color-mix(in srgb, var(--glow-2) 26%, var(--key-white)) !important; }
+#song-kbd .k.b.tgt.ghost.rh { background: color-mix(in srgb, var(--key-tgt) 35%, var(--key-black)) !important; }
+#song-kbd .k.b.tgt.ghost.lh { background: color-mix(in srgb, var(--glow-2) 35%, var(--key-black)) !important; }
+#song-kbd .k.tgt.ghost .finger { opacity: .55; }
+/* pressed, and a short green flash when right */
+#song-kbd .k.w.on { background: linear-gradient(to bottom, color-mix(in srgb, var(--key-on) 60%, var(--key-white)), var(--key-on)) !important; }
+#song-kbd .k.b.on { background: linear-gradient(to bottom, color-mix(in srgb, var(--key-on) 75%, var(--key-black)), var(--key-on)) !important; }
+#song-kbd .k.w.done { background: linear-gradient(to bottom, color-mix(in srgb, var(--ok) 60%, var(--key-white)), var(--ok)) !important; }
+#song-kbd .k.b.done { background: linear-gradient(to bottom, color-mix(in srgb, var(--ok) 75%, var(--key-black)), var(--ok)) !important; }
+/* playable by touch / mouse (js/songs.js); pan-x keeps sideways scrolling, stops pinch-zoom and long-press menus */
+#song-kbd { touch-action: pan-x; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#song-kbd .k { cursor: pointer; }
+#song-kbd .k .finger { min-width: 18px; height: 18px; padding: 0 3px; font-size: .64rem; bottom: 6px; }
+#song-kbd .k.b .finger { min-width: 16px; height: 16px; font-size: .58rem; }
+
+/* ---------- sections + bar pool ---------- */
+#song-section-chips label span { font-variant-numeric: tabular-nums; opacity: .7; }
+#song-bar-pool { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; }
+.bar-chip { width: 54px; height: 44px; padding: 3px 4px !important; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--ink); }
+.bar-chip .bar-n { font-size: .82rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bar-chip .bar-chord { font-size: .6rem; font-weight: 700; color: var(--muted); white-space: nowrap; min-height: .8em; }
+.bar-chip.current { border-color: var(--accent) !important; box-shadow: inset 0 0 0 1px var(--accent); }
+.bar-chip.section-start { margin-left: 10px; }
+.bar-note { margin: 0; font-size: .76rem; color: var(--muted); }
+
+/* ---------- song guide ---------- */
+#song-guide-heading { display: flex; flex-direction: column; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line-strong); }
+#song-guide-heading h2 { margin: 0; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.03em; }
+#song-guide-heading p { margin: 0; color: var(--muted); }
+#song-guide-facts { display: flex; flex-direction: column; gap: 16px; }
+.guide-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 18px; margin: 0; padding: 14px 18px; }
+.guide-dl dt { font-size: .68rem; font-weight: 800; text-transform: lowercase; letter-spacing: .06em; color: var(--muted); }
+.guide-dl dd { margin: 2px 0 0; font-weight: 700; }
+.guide-patterns { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; line-height: 1.5; font-size: .92rem; }
+.guide-bars { font-weight: 400; font-size: .78rem; color: var(--muted); margin-left: 6px; }
+.guide-chords { color: var(--ink) !important; font-weight: 700; }
+#song-guide-sections .theory-lesson .action-btn { margin-top: 6px; }
+
+@media (max-width: 640px) {
+  #song-roll { height: 220px; }
+  #song-kbd { height: 104px; }
+  #song-beat-dots { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { #song-stage { transition: none; } }
+
+/* fingering next to the note names on the stage (js/songs.js, from js/fingering.js) */
+#song-stage-notes .finger-sup { font-size: .42em; font-weight: 800; margin-left: .08em; vertical-align: super; line-height: 0; opacity: .8; }
+
+/* the stage shows the bar's chord (js/songs.js barChord), with the next chord underneath when it changes */
+#song-stage-notes .stage-chord { display: block; }
+#song-stage-notes .stage-next-chord { display: block; margin-top: 4px; font-size: .9rem; font-weight: 700; letter-spacing: 0; color: var(--muted); }
+/* bar chips: a chord worked out from the notes (not written in the song file) is a little quieter */
+.bar-chip .bar-chord.auto { opacity: .75; }
+
+/* fixed height: every line of the stage keeps its size whatever it shows (js/songs.js updateStage), so nothing
+   below the box jumps when the chord, hint or section tip changes */
+#song-stage { min-height: 0; justify-content: flex-start; }
+#song-stage-top { flex-wrap: nowrap; }
+#song-stage-song, #song-stage-hint, #song-stage-notes .stage-chord, #song-stage-notes .stage-next-chord {
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#song-stage-song { min-width: 0; }
+#song-stage-pos { flex: none; }
+#song-stage-notes { width: 100%; }
+#song-stage-notes .stage-chord { height: 1.1em; }
+#song-stage-notes .stage-next-chord { height: 1.3em; line-height: 1.3; }
+#song-stage-hint { line-height: 1.35; height: 1.35em; }
+#song-stage-tip { line-height: 1.45; height: 4.35em; /* three lines */ overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
+
+/* bar chips with a mistake in the last Free play take: a red dot in the corner */
+.bar-chip.has-mistakes::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--bad); }

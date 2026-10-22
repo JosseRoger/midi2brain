@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>midi2brain</title>
+<meta name="description" content="Free adaptive piano trainer: learn chords, inversions, scales and ear training with a MIDI keyboard, microphone or computer keyboard.">
+<link rel="canonical" href="https://midi2brain.com/">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=2">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png?v=2">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#c7c4bf">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://midi2brain.com/">
+<meta property="og:title" content="midi2brain | Adaptive chord trainer">
+<meta property="og:description" content="Free adaptive piano trainer: learn chords, inversions, scales and ear training with a MIDI keyboard, microphone or computer keyboard.">
+<meta property="og:site_name" content="midi2brain">
+<meta property="og:locale" content="en_GB">
+<meta property="og:image" content="https://midi2brain.com/og-image.jpg">
+
+<!-- Twitter Card Meta Tags -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="midi2brain | Adaptive chord trainer">
+<meta name="twitter:description" content="Free adaptive piano trainer: learn chords, inversions, scales and ear training with a MIDI keyboard, microphone or computer keyboard.">
+<meta name="twitter:image" content="https://midi2brain.com/og-image.jpg">
+
+<!-- Schema.org Structured Data (JSON-LD) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "midi2brain",
+  "applicationCategory": "MusicApplication",
+  "operatingSystem": "Web browser",
+  "browserRequirements": "Works in any modern browser. MIDI keyboards need Chrome or Edge; the microphone and on-screen keyboard work everywhere.",
+  "url": "https://midi2brain.com/",
+  "description": "Free adaptive piano trainer: learn chords, inversions, scales and ear training with a MIDI keyboard, microphone or computer keyboard.",
+  "genre": "Music Education",
+  "audience": {
+    "@type": "Audience",
+    "audienceType": "Piano students, hobbyists, and musicians"
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "isAccessibleForFree": true,
+  "keywords": "piano chord trainer, learn piano chords, chord inversions, piano scales, ear training, MIDI piano practice, adaptive practice",
+  "featureList": [
+    "Adaptive chord practice that focuses on your weak chords",
+    "Chord inversions",
+    "Scale practice",
+    "Ear training",
+    "Chord detector",
+    "Music theory lessons",
+    "MIDI keyboard, microphone, on-screen and computer keyboard input"
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css?v=78">
+<link rel="stylesheet" href="./theme.css?v=37">
+<link rel="stylesheet" href="./songs.css?v=11">
+<link rel="stylesheet" href="./routine.css?v=2">
+<script>/* the remembered palette (else Ember), set before first paint (menu logic: js/core.js) */
+(function () {
+  var p = 'ember';
+  try { p = localStorage.getItem('palette') || 'ember'; } catch (e) { /* storage unavailable */ }
+  document.documentElement.setAttribute('data-palette', p);
+  document.documentElement.setAttribute('data-theme', p === 'paper' || p === 'vermilion' ? 'light' : 'dark');
+})();</script>
+</head>
+<body class="mode-chords">
+<div class="ambient" aria-hidden="true"></div>
+<div class="grain-bg" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<div id="startup-gate" role="button" tabindex="0" aria-label="Click anywhere to start">
+  <p id="startup-gate-instruction">click anywhere to start</p>
+  <!-- pick the full or the light version (js/core.js shows this, js/audio.js startApp reads it) -->
+  <div id="startup-gate-modes" hidden>
+    <button type="button" class="gate-option" data-lite="0"><span class="gate-option-name">full</span><span class="gate-option-sub">richest sound &amp; visuals</span></button>
+    <button type="button" class="gate-option" data-lite="1"><span class="gate-option-name">light</span><span class="gate-option-sub">for less powerful devices</span></button>
+  </div>
+  <div id="startup-gate-intro">
+    <p class="startup-gate-title">Smart practice</p>
+    <p>The app keeps track of how well you know each chord and scale. Play one cleanly and quickly and its bar fills up; stumble or hit wrong notes and it drains a little.</p>
+    <p>The ones you find hardest come back more often, and the ones you have mastered step aside, so your practice time goes where it helps most.</p>
+  </div>
+</div>
+
+<header>
+  <h1>midi2brain</h1>
+  <div id="header-controls">
+    <div id="palette-menu">
+      <button type="button" id="palette-btn" aria-haspopup="true" aria-expanded="false" aria-controls="palette-list"><span class="pal-swatch" aria-hidden="true"></span><span>Palette</span></button>
+      <div id="palette-list" role="menu" aria-label="Colour palette" hidden>
+        <button type="button" role="menuitemradio" aria-checked="false" data-palette-choice="ember" data-tone="dark"><span class="pal-swatch" data-palette="ember" aria-hidden="true"></span>Ember</button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-palette-choice="dusk" data-tone="dark"><span class="pal-swatch" data-palette="dusk" aria-hidden="true"></span>Dusk</button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-palette-choice="moss" data-tone="dark"><span class="pal-swatch" data-palette="moss" aria-hidden="true"></span>Moss</button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-palette-choice="ash" data-tone="dark"><span class="pal-swatch" data-palette="ash" aria-hidden="true"></span>Ash</button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-palette-choice="paper" data-tone="light"><span class="pal-swatch" data-palette="paper" aria-hidden="true"></span>Paper</button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-palette-choice="vermilion" data-tone="light"><span class="pal-swatch" data-palette="vermilion" aria-hidden="true"></span>Vermilion</button>
+      </div>
+    </div>
+    <div id="midi-status"><i></i><span id="midi-text">Looking for MIDI…</span> <button id="connect" hidden>Connect MIDI</button></div>
+    <button type="button" id="settings-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-panel">Settings</button>
+  </div>
+</header>
+<div id="settings-panel" role="dialog" aria-label="Settings" hidden>
+  <div class="section" id="sec-notation">
+    <div class="section-head"><span>Notation</span></div>
+    <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-euro-notation"><span class="toggle-slider"></span></span> Solfège (European notation)</label>
+  </div>
+  <div class="section" id="sec-background">
+    <div class="section-head"><span>Visuals</span></div>
+    <!-- Same look/behaviour as the Synth control: switch = moving background on/off, the rest opens the popup.
+         js/ambient.js wires it up and moves #bg-panel to <body> (like the synth popup). -->
+    <div class="sound-menus">
+      <details class="chord-category" id="bg-menu">
+        <summary>
+          <div class="toggle-label-row chord-category-master"><span class="toggle-switch"><input type="checkbox" id="opt-background" aria-label="Moving background on/off" checked><span class="toggle-slider"></span></span> Background</div>
+          <span class="chord-category-menu-indicator" aria-hidden="true">+</span>
+        </summary>
+      </details>
+    </div>
+    <div class="chord-category-items synth-panel" id="bg-panel" hidden>
+      <label class="synth-row"><span>Speed</span><input type="range" data-bg-setting="speed" min="0" max="3" step="0.1"></label>
+      <label class="synth-row"><span>Reaction</span><input type="range" data-bg-setting="response" min="0" max="3" step="0.1"></label>
+      <label class="synth-row"><span>Morph</span><input type="range" data-bg-setting="morph" min="0" max="2.5" step="0.1"></label>
+      <label class="synth-row"><span>Intensity</span><input type="range" data-bg-setting="intensity" min="0.2" max="1.8" step="0.1"></label>
+      <label class="synth-row"><span>Lifespan</span><input type="range" data-bg-setting="life" min="10" max="120" step="5"></label>
+      <label class="synth-row"><span>Shapes</span><input type="range" data-bg-setting="shapes" min="1" max="12" step="1"></label>
+      <label class="synth-row"><span>Grain</span><input type="range" data-bg-setting="grain" min="0" max="2" step="0.1"></label>
+      <div class="synth-buttons"><button type="button" class="action-btn" id="bg-random">Randomise</button><button type="button" class="action-btn" id="bg-reset">Reset</button></div>
+    </div>
+  </div>
+  <!-- a MIDI slider / knob that sets the volume (js/midi.js) -->
+  <div class="section" id="sec-midi-controls">
+    <div class="section-head"><span>MIDI controls</span></div>
+    <div class="midi-learn-row">
+      <span class="midi-learn-label">Volume knob</span>
+      <span id="midi-volume-name">None</span>
+      <div class="synth-buttons"><button type="button" class="action-btn" id="midi-volume-learn" aria-pressed="false">Set</button><button type="button" class="action-btn" id="midi-volume-clear">Clear</button></div>
+    </div>
+    <p class="bar-note">Press Set, then turn a slider or knob on your MIDI device: it moves the Volume slider.</p>
+  </div>
+</div>
+
+<nav id="tabs" role="tablist" aria-label="Training mode">
+  <button type="button" role="tab" id="tab-chords" aria-selected="true" aria-controls="stage">Chords</button>
+  <button type="button" role="tab" id="tab-scales" aria-selected="false" aria-controls="stage" tabindex="-1">Scales</button>
+  <button type="button" role="tab" id="tab-ear" aria-selected="false" aria-controls="stage" tabindex="-1">Ear Training</button>
+  <button type="button" role="tab" id="tab-detector" aria-selected="false" aria-controls="stage" tabindex="-1">Detector</button>
+  <button type="button" role="tab" id="tab-songs" aria-selected="false" aria-controls="songs-view" tabindex="-1">Songs</button>
+  <button type="button" role="tab" id="tab-routine" aria-selected="false" aria-controls="routine-view" tabindex="-1">Routine</button>
+  <button type="button" role="tab" id="tab-theory" aria-selected="false" aria-controls="theory-view" tabindex="-1">Theory</button>
+  <button type="button" role="tab" id="tab-contact" aria-selected="false" aria-controls="contact-view" tabindex="-1">Contact</button>
+</nav>
+
+<!-- the running practice routine, on every tab (js/routine.js; styles in routine.css) -->
+<div id="routine-bar" aria-live="polite" hidden>
+  <div id="routine-bar-text">
+    <span id="routine-bar-phase"></span>
+    <b id="routine-bar-title"></b>
+    <span id="routine-bar-tip"></span>
+  </div>
+  <div id="routine-bar-side">
+    <span id="routine-bar-count"></span>
+    <span id="routine-bar-time"></span>
+    <div class="routine-bar-btns">
+      <button type="button" class="action-btn" id="routine-skip" title="On to the next step">Next</button>
+      <button type="button" class="action-btn" id="routine-pause">Pause</button>
+      <button type="button" class="action-btn" id="routine-end" title="End the session and see the summary">End</button>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- Routine tab (js/routine.js; styles in routine.css) ---------- -->
+<section id="routine-view" aria-label="Practice routine" hidden>
+  <div id="routine-setup">
+    <header class="routine-head">
+      <h2>Your practice routine</h2>
+      <p>Pick up to three songs and how long you have. The routine warms you up on their scales and chords, finds the bars that trip you up, and works on them at a speed that fits you.</p>
+    </header>
+    <div class="section-head"><span>Songs</span></div>
+    <p class="routine-note">How each song starts depends on how well you play it in the Songs tab. Already know one? <b>Calibrate</b>: play it through once with both hands, and the routine skips the hands-separate work.</p>
+    <div id="routine-songs"></div>
+    <div class="section-head"><span>Time</span></div>
+    <div id="routine-durations" class="routine-durations">
+      <button type="button" class="action-btn" data-min="15">15 min</button>
+      <button type="button" class="action-btn" data-min="30">30 min</button>
+      <button type="button" class="action-btn" data-min="45">45 min</button>
+      <button type="button" class="action-btn" data-min="60">1 hour</button>
+    </div>
+    <div class="section-head"><span>Your plan</span></div>
+    <div id="routine-plan"></div>
+    <button type="button" class="action-btn" id="routine-start">Start the routine</button>
+  </div>
+  <div id="routine-summary" hidden></div>
+</section>
+
+<section id="theory-view" aria-labelledby="theory-title" hidden>
+  <header id="theory-heading">
+    <h2 id="theory-title">Music theory, from the ground up</h2>
+    <p>Start with notes, build chords, then use them to make music your own.</p>
+  </header>
+  <nav id="theory-topic-tabs" role="tablist" aria-label="Music theory topics">
+    <button type="button" role="tab" id="theory-tab-foundations" aria-controls="theory-foundations" aria-selected="true">Foundations</button>
+    <button type="button" role="tab" id="theory-tab-scales" aria-controls="theory-scales" aria-selected="false" tabindex="-1">Scales</button>
+    <button type="button" role="tab" id="theory-tab-chords" aria-controls="theory-chords" aria-selected="false" tabindex="-1">Chords</button>
+    <button type="button" role="tab" id="theory-tab-progressions" aria-controls="theory-progressions" aria-selected="false" tabindex="-1">Progressions</button>
+    <button type="button" role="tab" id="theory-tab-improvising" aria-controls="theory-improvising" aria-selected="false" tabindex="-1">Improvising</button>
+    <button type="button" role="tab" id="theory-tab-practice" aria-controls="theory-practice" aria-selected="false" tabindex="-1">Practice path</button>
+  </nav>
+
+  <section class="theory-panel" id="theory-foundations" role="tabpanel" aria-labelledby="theory-tab-foundations">
+    <h3>Start with sound</h3>
+    <p class="theory-lede">Music theory is a set of names for sounds and patterns. It helps you understand what you hear; it is not a set of rules you must follow.</p>
+    <div class="theory-grid">
+      <article class="theory-lesson">
+        <h4>Notes and octaves</h4>
+        <p>The note names repeat: A, B, C, D, E, F, G, then A again. The same note higher or lower is an octave apart.</p>
+        <p class="theory-example">On a piano, find any C. The next C has the same name and sounds higher.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Half steps and whole steps</h4>
+        <p>A half step is the distance to the very next piano key. A whole step is two half steps. These small distances build scales and chords.</p>
+        <p class="theory-example">C to C# is a half step. C to D is a whole step.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Sharps, flats, and natural notes</h4>
+        <p>A sharp raises a note by a half step. A flat lowers it by a half step. A natural sign cancels a sharp or flat.</p>
+        <p class="theory-example">C# and Db use different names for the same piano key.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Keeping time</h4>
+        <p>A beat is the steady pulse you tap your foot to. The time signature tells you how beats are grouped. In 4/4, count 1, 2, 3, 4 and repeat.</p>
+        <p class="theory-example">Try clapping on 1 and 3 while counting all four beats.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="theory-panel" id="theory-scales" role="tabpanel" aria-labelledby="theory-tab-scales" hidden>
+    <h3>Scales are note families</h3>
+    <p class="theory-lede">A scale is a small family of notes. Pick one note as home, then follow a pattern of steps to visit the other notes.</p>
+    <div class="theory-grid">
+      <article class="theory-lesson">
+        <h4>The major scale pattern</h4>
+        <p>A whole step means move past one piano key. A half step means move to the very next key. Major scales use this pattern:</p>
+        <div class="theory-steps" aria-label="Whole, whole, half, whole, whole, whole, half"><span>W</span><span>W</span><span>H</span><span>W</span><span>W</span><span>W</span><span>H</span></div>
+        <p class="theory-example">Start on C: C, D, E, F, G, A, B, C. This one uses only the white keys.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>The natural minor scale pattern</h4>
+        <p>Minor scales use a different step pattern. The natural minor pattern is:</p>
+        <div class="theory-steps" aria-label="Whole, half, whole, whole, half, whole, whole"><span>W</span><span>H</span><span>W</span><span>W</span><span>H</span><span>W</span><span>W</span></div>
+        <p class="theory-example">Start on A: A, B, C, D, E, F, G, A. It uses the same white keys as C major, but A feels like home.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Scale degrees</h4>
+        <p>Give the notes numbers 1 through 7. Note 1 is home. Note 5 often points back home, and note 7 sits right beside it.</p>
+        <p class="theory-example">In C major, C is 1, G is 5, and B is 7.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Major and minor</h4>
+        <p>Major and minor are two different ways to space the notes. Major often feels bright; minor often feels darker or more thoughtful.</p>
+        <p class="theory-example">The notes can be the same, but changing which note feels like home changes the sound.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Choose notes that fit</h4>
+        <p>When learning a song, start by using notes from its scale. You can then add other notes for color, as long as you listen to how they feel.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="theory-panel" id="theory-chords" role="tabpanel" aria-labelledby="theory-tab-chords" hidden>
+    <h3>Chords combine notes</h3>
+    <p class="theory-lede">A chord is a few notes played together. Chords built from a song's scale tend to fit naturally with one another.</p>
+    <div class="theory-grid">
+      <article class="theory-lesson">
+        <h4>Build a triad</h4>
+        <p>A basic three-note chord uses a root, a third, and a fifth. The root gives it its name.</p>
+        <p class="theory-example">C major = C, E, G. C minor = C, Eb, G.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Major, minor, and diminished</h4>
+        <p>Major triads stack a larger third then a smaller third. Minor triads reverse that order. Diminished triads sound especially tense.</p>
+        <p class="theory-example">Major: 4 then 3 half steps. Minor: 3 then 4. Diminished: 3 then 3.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Roman numerals</h4>
+        <p>Roman numerals show a chord's place in a key. Uppercase means major; lowercase means minor. A small circle marks diminished.</p>
+        <p class="theory-example">In C major: I = C, ii = D minor, V = G, vi = A minor.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Inversions</h4>
+        <p>An inversion uses the same chord notes but puts a different one at the bottom. This can make chord changes smoother.</p>
+        <p class="theory-example">C-E-G and E-G-C are both C major; the second has E in the bass.</p>
+      </article>
+    </div>
+    <p class="theory-callout"><strong>Three useful roles:</strong> I is home, ii or IV moves away, and V creates a pull that often resolves to I.</p>
+  </section>
+
+  <section class="theory-panel" id="theory-progressions" role="tabpanel" aria-labelledby="theory-tab-progressions" hidden>
+    <h3>Make chord progressions</h3>
+    <p class="theory-lede">A progression is a repeating order of chords. Good progressions create a feeling of movement, then give the listener a place to rest.</p>
+    <div id="theory-progression-tool">
+      <h4>Try a progression in another key</h4>
+      <div id="theory-progression-controls">
+        <label>Key
+          <select id="theory-progression-key" aria-label="Choose a major key">
+            <option value="0">C major</option><option value="7">G major</option><option value="2">D major</option><option value="9">A major</option><option value="4">E major</option><option value="5">F major</option><option value="10">Bb major</option><option value="3">Eb major</option>
+          </select>
+        </label>
+        <label>Progression
+          <select id="theory-progression-pattern" aria-label="Choose a chord progression">
+            <option value="pop">I - V - vi - IV (pop)</option>
+            <option value="classic">I - IV - V - I (classic)</option>
+            <option value="jazz">ii - V - I (strong resolution)</option>
+            <option value="reflective">vi - IV - I - V (reflective)</option>
+          </select>
+        </label>
+      </div>
+      <ol id="theory-progression-chords" aria-live="polite"></ol>
+      <p id="theory-progression-note"></p>
+    </div>
+    <div class="theory-grid">
+      <article class="theory-lesson">
+        <h4>Listen for a story</h4>
+        <p>Start on a home chord, move to a chord that opens things up, add a little tension, then return home. Repeating the loop helps it feel like a song.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Start with these patterns</h4>
+        <p>I - IV - V - I sounds settled and familiar. I - V - vi - IV is common in pop. ii - V - I gives a clear pull home and is common in jazz.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>How to find your own</h4>
+        <p>Choose a key, try chords I, IV, V, and vi, and move them into an order that feels good. There is no single correct progression; your ears are the final check.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Make changes smoother</h4>
+        <p>Keep notes that chords share, and move the other notes by the smallest distance you can. This is called voice leading, but the idea is simply: don't make every note jump.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="theory-panel" id="theory-improvising" role="tabpanel" aria-labelledby="theory-tab-improvising" hidden>
+    <h3>Improvise one small idea at a time</h3>
+    <p class="theory-lede">Improvising is making up a melody in the moment. You do not need lots of notes; a clear rhythm and a few well-chosen notes are enough.</p>
+    <div class="theory-grid">
+      <article class="theory-lesson">
+        <h4>Start with a small note set</h4>
+        <p>Over a major-key progression, try the major pentatonic: scale degrees 1, 2, 3, 5, and 6. In C, that is C, D, E, G, A.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Land on chord notes</h4>
+        <p>On strong beats, aim for a note in the chord currently playing. Use nearby scale notes to lead into it.</p>
+        <p class="theory-example">Over C major, E or G will sound settled. Over G major, try B or D.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Repeat and vary a motif</h4>
+        <p>Make a short musical sentence, repeat it, then change its ending or rhythm. A tiny idea that develops is easier to follow than a stream of random notes.</p>
+      </article>
+      <article class="theory-lesson">
+        <h4>Use rhythm and silence</h4>
+        <p>Leave space between phrases. Try a few long notes, then a short rhythmic answer. Silence is part of the melody too.</p>
+      </article>
+    </div>
+    <p class="theory-callout"><strong>Simple practice:</strong> loop I - V - vi - IV in C, improvise using C, D, E, G, A, and finish a phrase on C or E.</p>
+  </section>
+
+  <section class="theory-panel" id="theory-practice" aria-labelledby="theory-practice-title" hidden>
+    <h3 id="theory-practice-title">A beginner practice path</h3>
+    <p class="theory-lede">Learn one idea, play it, and listen. Short, regular practice beats trying to learn everything at once.</p>
+    <ol id="theory-practice-path">
+      <li>Find C and play the C major scale slowly, saying each note name.</li>
+      <li>Build C, F, and G major, then A minor, and notice which notes are shared.</li>
+      <li>Play C - G - Am - F with an even count of four beats per chord.</li>
+      <li>Hum a two-bar melody, then find it on the piano using C, D, E, G, and A.</li>
+      <li>Change one note or rhythm and listen to how the mood shifts.</li>
+    </ol>
+  </section>
+</section>
+
+<section id="contact-view" aria-label="Contact" hidden>
+  <div id="contact-heading">
+    <p>Midi2brain is a web app I made to help myself learn piano and understand music.<br>I'm very much a beginner, so any feedback or feature suggestions are welcome.</p>
+  </div>
+  <form id="contact-form" novalidate>
+    <label>Name <input type="text" name="name" autocomplete="name" required></label>
+    <label>Your email <input type="email" name="email" autocomplete="email" required></label>
+    <label>Message <textarea name="message" rows="6" required></textarea></label>
+    <input type="checkbox" name="botcheck" class="contact-botcheck" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <button type="submit">Send</button>
+    <p id="contact-status" role="status" aria-live="polite"></p>
+  </form>
+</section>
+
+<!-- ---------- Songs tab (js/songs.js; styles in songs.css) ---------- -->
+<section id="songs-view" aria-label="Songs" hidden>
+  <nav id="song-tabs" role="tablist" aria-label="Songs view">
+    <button type="button" role="tab" id="song-tab-library" aria-selected="true" aria-controls="song-library-view">Songs</button>
+    <button type="button" role="tab" id="song-tab-practice" aria-selected="false" aria-controls="song-practice-view" tabindex="-1">Practice</button>
+    <button type="button" role="tab" id="song-tab-guide" aria-selected="false" aria-controls="song-guide-view" tabindex="-1">Song guide</button>
+  </nav>
+
+  <section id="song-library-view" aria-label="Song library">
+    <div class="section-head"><span>Your songs</span></div>
+    <div id="song-list"></div>
+    <p class="library-note">Learn a song bar by bar: sheet music turned into falling notes. Practise one hand or both, slow it down, loop the hard bars, and let the song wait for you until you play the right notes. Every bar keeps its own progress bar.</p>
+  </section>
+
+  <section id="song-practice-view" aria-label="Practice" hidden>
+    <div id="song-stage" aria-live="polite">
+      <div id="song-stage-top">
+        <span id="song-stage-song"></span>
+        <span id="song-stage-pos"></span>
+      </div>
+      <p id="song-stage-notes">–</p>
+      <p id="song-stage-hint">press play, or just start playing</p>
+      <p id="song-stage-tip"></p>
+    </div>
+
+    <!-- the take report: shown when the song ends (js/songs.js showReport) -->
+    <div id="song-report" class="song-opt-card" aria-live="polite" hidden>
+      <div class="report-head">
+        <div class="section-head"><span>Your take</span></div>
+        <button type="button" id="song-report-close" aria-label="Close the report">×</button>
+      </div>
+      <div id="song-report-body"></div>
+    </div>
+
+    <!-- 1. play controls: what you reach for all the time -->
+    <div id="song-transport">
+      <div class="song-btns">
+        <button type="button" class="action-btn" id="song-btn-play" aria-pressed="false">Play</button>
+        <button type="button" class="action-btn" id="song-btn-restart" title="Back to the start of the loop (or the song)">Restart</button>
+        <button type="button" class="action-btn" id="song-btn-hear" aria-pressed="false" title="Play the current bar once (both hands) at the chosen speed">Hear bar</button>
+      </div>
+      <label id="song-speed-row"><span>Speed</span><input type="range" id="song-speed" min="0.3" max="1.2" step="0.05" value="0.7"><output id="song-speed-value">70%</output></label>
+      <span id="song-beat-dots" aria-hidden="true"></span>
+    </div>
+
+    <!-- 2. how you practise -->
+    <div id="song-practice-opts">
+      <div class="song-field">
+        <span class="song-field-label">Hands</span>
+        <div class="chips" role="radiogroup" aria-label="Hands">
+          <label><input type="radio" name="song-hands" value="rh" checked> Right</label>
+          <label><input type="radio" name="song-hands" value="lh"> Left</label>
+          <label><input type="radio" name="song-hands" value="both"> Both</label>
+        </div>
+      </div>
+      <div class="song-field">
+        <span class="song-field-label">Mode</span>
+        <div class="chips" role="radiogroup" aria-label="Mode">
+          <label title="The song waits for you to play the right notes"><input type="radio" name="song-pmode" value="wait" checked> Wait for me</label>
+          <label title="The song keeps going at the chosen speed"><input type="radio" name="song-pmode" value="play"> Play along</label>
+          <label title="The song follows you and never stops you: wrong notes show up in red on the falling notes"><input type="radio" name="song-pmode" value="free"> Free play</label>
+          <label title="The app plays the song for you (both hands) while the notes fall"><input type="radio" name="song-pmode" value="listen"> Listen</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. the notes and the keys -->
+    <div id="song-kbd-frame">
+      <div id="song-kbd-wrap">
+        <canvas id="song-roll" aria-hidden="true"></canvas>
+        <div id="song-kbd"></div>
+      </div>
+      <!-- desktop: drag an edge to resize (js/songs.js), double-click to reset -->
+      <div class="song-resize" data-edge="left" title="Drag to resize · double-click to reset" aria-hidden="true"></div>
+      <div class="song-resize" data-edge="right" title="Drag to resize · double-click to reset" aria-hidden="true"></div>
+      <div class="song-resize" data-edge="top" title="Drag to resize · double-click to reset" aria-hidden="true"></div>
+      <div class="song-resize" data-edge="bottom" title="Drag to resize · double-click to reset" aria-hidden="true"></div>
+    </div>
+
+    <!-- 4. options -->
+    <div id="song-options">
+      <div class="song-opt-card">
+        <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="song-opt-other-hand" checked><span class="toggle-slider"></span></span> The other hand</label>
+        <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="song-opt-fingers" checked><span class="toggle-slider"></span></span> Fingering</label>
+        <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="song-opt-key-names" checked><span class="toggle-slider"></span></span> Note names on the keys</label>
+        <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="song-opt-roll-names" checked><span class="toggle-slider"></span></span> Note names on the falling notes</label>
+        <label class="toggle-label-row" title="A red outline on the falling notes for a note you played early or late"><span class="toggle-switch"><input type="checkbox" id="song-opt-late-marks" checked><span class="toggle-slider"></span></span> Early / late notes</label>
+      </div>
+      <div class="song-opt-card" id="song-sound">
+        <div class="song-field">
+          <span class="song-field-label">Voice</span>
+          <div class="chips" role="radiogroup" aria-label="Sound">
+            <label title="A recorded grand piano (Salamander Grand Piano by Alexander Holm, CC-BY 3.0)"><input type="radio" name="song-sound" value="sampled" checked> Piano</label>
+            <label title="The app synth, in the palette's sound (Settings)"><input type="radio" name="song-sound" value="synth"> Synth</label>
+          </div>
+        </div>
+        <div class="song-field">
+          <span class="song-field-label" title="What the app plays along with you, also when Sound on my keys is off">App plays</span>
+          <div class="chips" role="radiogroup" aria-label="App plays">
+            <label title="Only your own playing"><input type="radio" name="song-backing" value="off"> Nothing</label>
+            <label title="The app plays the hand you are not practising, in time with you (also when Sound on my keys is off)"><input type="radio" name="song-backing" value="other" checked> Other hand</label>
+            <label title="The app plays every note, yours included"><input type="radio" name="song-backing" value="all"> Everything</label>
+          </div>
+        </div>
+        <label class="toggle-label-row" title="Turn off if your keyboard makes its own sound"><span class="toggle-switch"><input type="checkbox" id="song-opt-own-keys" checked><span class="toggle-slider"></span></span> Sound on my keys</label>
+        <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="song-opt-metronome"><span class="toggle-slider"></span></span> Metronome</label>
+      </div>
+    </div>
+
+    <!-- a MIDI key / controller button that starts and restarts the song (js/midi.js) -->
+    <div class="song-opt-card" id="song-midi-btn">
+      <div class="song-midi-row">
+        <span class="song-field-label">Start / restart button</span>
+        <span id="song-midi-btn-name">None</span>
+        <div class="synth-buttons"><button type="button" class="action-btn" id="song-midi-btn-learn" aria-pressed="false">Set</button><button type="button" class="action-btn" id="song-midi-btn-clear">Clear</button></div>
+      </div>
+      <p class="bar-note">Press Set, then a key or button on your MIDI device. Stopped, it starts the song; playing, it goes back to the start. Either way the falling notes come into view.</p>
+    </div>
+
+    <!-- 5. where in the song: sections, loop, bars -->
+    <div class="section" id="song-where">
+      <div class="section-head"><span>Sections &amp; bars</span></div>
+      <div class="chips" id="song-section-chips"></div>
+      <div id="song-loop-row">
+        <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="song-opt-loop"><span class="toggle-slider"></span></span> Loop bars</label>
+        <span id="song-loop-range"><select id="song-loop-from" aria-label="Loop from bar"></select><span>to</span><select id="song-loop-to" aria-label="Loop to bar"></select></span>
+      </div>
+      <div id="song-bar-pool"></div>
+      <p class="bar-note">Pick a section to loop it. Click a bar to jump there, shift-click to loop up to it. The fill shows how well you know each bar.</p>
+    </div>
+
+  </section>
+
+  <section id="song-guide-view" aria-label="Song guide" hidden>
+    <header id="song-guide-heading">
+      <h2 id="song-guide-title"></h2>
+      <p id="song-guide-sub"></p>
+    </header>
+    <div id="song-guide-facts"></div>
+    <div id="song-guide-sections" class="theory-grid"></div>
+  </section>
+</section>
+
+<main id="stage" aria-live="polite" tabindex="0" aria-label="Chord display; activate to generate next chord">
+  <div id="chord-display">
+    <div id="chord-name-wrap">
+      <p id="chord">–</p>
+      <span id="root-octave"></span>
+    </div>
+  </div>
+  <div id="stage-details">
+    <p id="hint">Play this chord</p>
+    <div id="trail" aria-hidden="true" hidden></div>
+    <div id="held"></div>
+    <p id="stage-next-hint">click for next chord</p>
+    <p id="mic-offer-hint" hidden>double-click here to use the microphone</p>
+  </div>
+</main>
+
+<div id="kbd-wrap"><div id="kbd"></div></div>
+<input type="range" id="kbd-scroll" min="0" max="1000" value="0" aria-label="Scroll the keyboard" hidden>
+<div id="kbd-controls">
+  <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-show" checked><span class="toggle-slider"></span></span> <span id="opt-show-text">Show chord on keyboard</span></label>
+  <label class="toggle-label-row" id="playable-kbd-row" hidden><span class="toggle-switch"><input type="checkbox" id="opt-full-kbd"><span class="toggle-slider"></span></span> Full keyboard</label>
+</div>
+<div id="mic-calibration-gate" role="dialog" aria-modal="true" aria-labelledby="mic-calibration-title" hidden>
+  <div id="mic-calibration-content">
+    <h2 id="mic-calibration-title">Microphone calibration</h2>
+    <p id="mic-calibration-instruction" aria-live="polite">Stay quiet while the microphone measures room noise.</p>
+    <output id="mic-calibration-note" aria-live="polite"></output>
+    <div id="mic-calibration-sensitivity-control">
+        <label for="mic-calibration-sensitivity">Sensitivity</label>
+      <div class="mic-sensitivity-range">
+        <span>More filtering</span>
+        <div class="mic-slider-stack">
+          <div class="mic-level-meter" id="mic-calibration-level-meter" role="progressbar" aria-label="Live sound level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="mic-calibration-level-fill"></span></div>
+          <input type="range" id="mic-calibration-sensitivity" min="1" max="10" step="1" value="4" aria-label="Microphone sensitivity during calibration">
+        </div>
+        <span>More sensitive</span>
+        <output class="mic-level-value" id="mic-calibration-level-value">-60 dB</output>
+      </div>
+    </div>
+    <button type="button" id="mic-calibration-retry" class="action-btn" hidden>Try microphone again</button>
+  </div>
+</div>
+<div id="detector-history" hidden>
+  <div class="section-head"><span>Last played</span></div>
+  <div id="detector-history-list" aria-live="polite"></div>
+</div>
+
+<div id="pool-area">
+  <div class="section" id="sec-chord-pool">
+    <div class="section-head"><span>Chord pool</span></div>
+    <div id="chord-pool-wrap">
+      <div id="chord-pool" class="chips"></div>
+    </div>
+  </div>
+  <div class="section" id="sec-chord-types">
+    <div class="section-head"><span>Chord types</span></div>
+    <div class="chips" id="groups"></div>
+  </div>
+  <div class="section" id="sec-scale-pool" hidden>
+    <div class="section-head"><span>Scale pool</span></div>
+    <div id="scale-pool-wrap">
+      <div id="scale-pool" class="chips"></div>
+    </div>
+  </div>
+  <div class="section" id="sec-scale-groups" hidden>
+    <div class="section-head"><span>Scale families</span></div>
+    <div class="chips" id="scale-groups"></div>
+  </div>
+</div>
+
+<div id="options">
+  <!-- Practice setup: shown for chords + scales -->
+  <div class="section" id="sec-hands">
+    <div class="section-head"><span>Practice setup</span></div>
+    <div class="opt-row" id="hand-selection-row">
+      <span class="opt-label">Hands</span>
+      <div class="chips" role="group" aria-label="Hands selection">
+        <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-both-hands"><span class="toggle-slider"></span></span> Both hands</label>
+      </div>
+    </div>
+    <div class="opt-row" id="octave-row">
+      <span class="opt-label" id="octave-label">Octave</span>
+      <div id="octave-slider-wrap">
+        <div class="slider-track">
+          <input type="range" id="octave-select" min="1" max="7" step="1" value="4" aria-label="Select the octave to practice in">
+          <div class="slider-ticks" id="octave-slider-ticks" aria-hidden="true"></div>
+        </div>
+        <span id="octave-value">C4</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chords options -->
+  <div class="section" id="sec-chord-key">
+    <div class="section-head"><span>Musical key</span></div>
+    <div class="opt-row" id="key-row">
+      <span class="opt-label">Key</span>
+      <select id="key-select" aria-label="Restrict to a musical key"></select>
+    </div>
+    <div class="opt-row" id="jazz-toggle-row">
+      <span class="opt-label">Style</span>
+      <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-jazz-chords"><span class="toggle-slider"></span></span> Jazz chords</label>
+    </div>
+    <div class="opt-row" id="smart-practice-row">
+      <span class="opt-label">Adaptive</span>
+      <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-smart-practice" checked><span class="toggle-slider"></span></span> Smart practice (focus on weak chords)</label>
+    </div>
+    <div class="opt-row" id="key-order-row" hidden>
+      <span class="opt-label">Order</span>
+      <div class="chips">
+        <label><input type="radio" name="key-order" value="random" checked> Random</label>
+        <label><input type="radio" name="key-order" value="up"> Sequential up</label>
+        <label><input type="radio" name="key-order" value="down"> Sequential down</label>
+      </div>
+    </div>
+    <div class="opt-row" id="nice-progression-row">
+      <span class="opt-label">Flow</span>
+      <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-nice-progression" checked><span class="toggle-slider"></span></span> Good progressions</label>
+    </div>
+  </div>
+
+  <!-- Ear Training options -->
+  <div class="section" id="sec-ear-opts" hidden>
+    <div class="section-head"><span>Ear Training Settings</span></div>
+    <div class="toggles" id="ear-toggles">
+      <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-ear-simultaneous" checked><span class="toggle-slider"></span></span> All notes at the same time</label>
+      <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-ear-ascending" checked><span class="toggle-slider"></span></span> Ascending one by one</label>
+      <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-ear-show-root" checked><span class="toggle-slider"></span></span> Show octave</label>
+    </div>
+  </div>
+
+  <!-- Scales options -->
+  <div class="section" id="sec-scale-select" hidden>
+    <div class="section-head"><span>Select scale</span></div>
+    <div class="opt-row" id="scale-select-row">
+      <span class="opt-label">Scale</span>
+      <select id="scale-select" aria-label="Select a specific scale"></select>
+      <button type="button" id="btn-random-scale" class="action-btn">Random</button>
+    </div>
+  </div>
+  <div class="section" id="sec-scale-opts" hidden>
+    <div class="section-head"><span>Direction</span></div>
+    <div id="scale-opts">
+      <div class="opt-row">
+        <div class="chips" role="radiogroup" aria-label="Direction">
+          <label><input type="radio" name="dir" value="up" checked> Up</label>
+          <label><input type="radio" name="dir" value="down"> Down</label>
+          <label><input type="radio" name="dir" value="both"> Up &amp; down</label>
+        </div>
+      </div>
+      <div class="opt-row" id="scale-smart-practice-row">
+        <span class="opt-label">Adaptive</span>
+        <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-scale-smart-practice" checked><span class="toggle-slider"></span></span> Smart practice (focus on weak scales)</label>
+      </div>
+    </div>
+  </div>
+  <div class="section" id="sec-global">
+    <div class="section-head"><span>Sound</span></div>
+    <div class="toggles" id="global-toggles">
+        <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-sound" checked><span class="toggle-slider"></span></span> Play piano sound</label>
+      <div class="opt-row" id="sound-type-row">
+        <span class="opt-label">Sound type</span>
+        <select id="sound-type" aria-label="Select sound type">
+          <option value="acoustic">Acoustic Piano</option>
+          <option value="bright">Bright Grand Piano</option>
+          <option value="warm">Warm Soft Piano</option>
+          <option value="epiano">Electric Piano (FM)</option>
+          <option value="organ">Classic Organ</option>
+          <option value="synthpad">Atmospheric Pad</option>
+          <option value="strings">String Ensemble</option>
+          <option value="musicbox">Music Box</option>
+        </select>
+        <label class="toggle-label-row" style="margin-left: 12px;"><span class="toggle-switch"><input type="checkbox" id="opt-reverb" checked><span class="toggle-slider"></span></span> Reverb</label>
+      </div>
+      <!-- endless soft pad under the asked chord/scale, else the palette's chord (js/audio.js, Ambient drone; moved into the Synth / Volume row); on by default, remembered -->
+      <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="opt-drone" checked><span class="toggle-slider"></span></span> Ambient drone</label>
+    </div>
+    <!-- Detector-specific controls (shown only in Detector mode) -->
+    <div id="detector-controls" hidden>
+      <label class="toggle-label-row" hidden><span class="toggle-switch"><input type="checkbox" id="detector-opt-sound" checked><span class="toggle-slider"></span></span> Play piano sound</label>
+      <div class="opt-row" hidden><select id="detector-sound-type" aria-label="Detector sound type">
+        <option value="acoustic">Acoustic Piano</option>
+        <option value="bright">Bright Grand Piano</option>
+        <option value="warm">Warm Soft Piano</option>
+        <option value="epiano">Electric Piano (FM)</option>
+        <option value="organ">Classic Organ</option>
+        <option value="synthpad">Atmospheric Pad</option>
+        <option value="strings">String Ensemble</option>
+        <option value="musicbox">Music Box</option>
+      </select></div>
+    </div>
+  </div>
+</div>
+
+<section id="mic-input-panel">
+  <div class="section-head"><span>Microphone</span></div>
+  <div id="mic-sensitivity-control">
+    <label for="mic-sensitivity">Sensitivity</label>
+    <div class="mic-sensitivity-range">
+      <span id="mic-sensitivity-low">More filtering</span>
+      <div class="mic-slider-stack">
+        <div class="mic-level-meter" id="mic-level-meter" role="progressbar" aria-label="Live sound level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="mic-level-fill"></span></div>
+        <input type="range" id="mic-sensitivity" min="1" max="10" step="1" value="4" aria-label="Microphone sensitivity">
+      </div>
+      <span id="mic-sensitivity-high">More sensitive</span>
+      <output class="mic-level-value" id="mic-level-value">-60 dB</output>
+    </div>
+  </div>
+  <div id="mic-input-actions">
+    <label class="toggle-label-row"><span class="toggle-switch"><input type="checkbox" id="mic-toggle" aria-label="Enable microphone"><span class="toggle-slider"></span></span> Enable microphone</label>
+    <button type="button" id="mic-calibrate" class="action-btn" hidden>Calibrate again</button>
+    <span id="mic-status" role="status" aria-live="polite"></span>
+  </div>
+</section>
+
+<p id="kbd-note">Numbers show suggested fingering: 1 = thumb, 5 = pinky. No MIDI keyboard? Turn on the microphone in Settings, click the keys above, or use your computer keyboard: A W S E D F T G Y H U J K O L P ; play upward from the selected octave's C.</p>
+
+<footer id="site-credit">Piano samples: <a href="https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html" target="_blank" rel="noopener">Salamander Grand Piano</a> by Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a></footer>
+
+<!-- Load order matters: files share top-level variables; see CLAUDE.md -->
+<script defer src="./js/ambient.js?v=33"></script>
+<script defer src="./js/core.js?v=80"></script>
+<script defer src="./js/audio.js?v=96"></script>
+<script defer src="./js/info.js?v=74"></script>
+<script defer src="./js/chords.js?v=75"></script>
+<script defer src="./js/octave.js?v=73"></script>
+<script defer src="./js/trainer.js?v=82"></script>
+<script defer src="./js/mic.js?v=74"></script>
+<script defer src="./js/keyboard.js?v=77"></script>
+<script defer src="./js/scales.js?v=76"></script>
+<script defer src="./js/detector.js?v=74"></script>
+<script defer src="./js/theory.js?v=73"></script>
+<script defer src="./js/contact.js?v=72"></script>
+<script defer src="./js/songformat.js?v=4"></script>
+<script defer src="./js/fingering.js?v=2"></script>
+<script defer src="./songs/gnossienne-1.js?v=1"></script>
+<script defer src="./songs/bach-prelude-c.js?v=1"></script>
+<script defer src="./songs/chopin-waltz-a-minor.js?v=1"></script>
+<script defer src="./js/songs.js?v=35"></script>
+<script defer src="./js/routine.js?v=22"></script>
+<script defer src="./js/tabs.js?v=78"></script>
+<script defer src="./js/midi.js?v=77"></script>
+<script defer src="./js/settings.js?v=3"></script>
+<script defer src="./js/main.js?v=73"></script>
+</body>
+</html>
