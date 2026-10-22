@@ -34,7 +34,7 @@ Songs are plain JS files in `songs/`, written in a compact bar notation (the syn
 
 ## Licence
 
-midi2brain is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You're free to use, study, change and share it for any non-commercial purpose: learning, teaching, personal projects or research. Commercial use needs a separate licence. For that, please contact me via [midi2brain.com](https://midi2brain.com).
+midi2brain is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You're free to use, study, change and share it for any non-commercial purpose: learning, teaching, personal projects or research. Commercial use needs a separate licence. For that, please contact [feedback@midi2brain.com](mailto:feedback@midi2brain.com).
 
 ### Credits
 
