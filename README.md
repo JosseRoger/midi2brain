@@ -2,7 +2,7 @@
 
 A free piano trainer that runs in your browser. Learn chords, inversions, scales and songs with a MIDI keyboard, your microphone or your computer keyboard.
 
-**[▶ Try it now at midi2brain.com](https://midi2brain.com)**
+Try it now at midi2brain.com](https://midi2brain.com)
 
 <!-- TODO: add a screenshot or GIF of the falling notes here -->
 
