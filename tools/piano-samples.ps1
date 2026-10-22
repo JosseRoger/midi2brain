@@ -1,7 +1,16 @@
 # Downloads the Salamander Grand Piano velocity layers used by the sampled piano (js/audio.js) into samples/piano/,
 # cut to at most -seconds (at an MP3 frame boundary, so no re-encoding; the app fades the cut out).
 # Source: the full-length MP3s from Tone.js's Piano (https://github.com/tambien/Piano), Salamander V3 by Alexander Holm, CC-BY 3.0.
-param([int[]]$layers = @(4, 8, 12, 16), [double]$seconds = 10, [string]$outDir = "$PSScriptRoot\..\samples\piano")
+# -release: instead, the key-release noises (the damper landing), rel1..rel88 = A0..C8, saved as rel<midi>.mp3 (~0.9 MB).
+param([int[]]$layers = @(4, 8, 12, 16), [double]$seconds = 10, [string]$outDir = "$PSScriptRoot\..\samples\piano", [switch]$release)
+
+if ($release) {
+  New-Item -ItemType Directory -Force $outDir | Out-Null
+  for ($k = 1; $k -le 88; $k++) {
+    Invoke-WebRequest "https://tambien.github.io/Piano/audio/rel$k.mp3" -UseBasicParsing -OutFile "$outDir\rel$($k + 20).mp3"
+  }
+  return
+}
 
 $names = 'C', 'Ds', 'Fs', 'A'
 $rates = 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320

@@ -451,7 +451,7 @@ const songApp = (() => {
     startVoice(note.midi, vel, voiceKey(note.midi));
   }
   function startVoice(midi, vel, key) {
-    stopPianoNote(key);
+    stopPianoNote(key, true);
     if (S.sound === 'sampled') startSampledPiano(midi, audioCtx.currentTime, vel, key);
     else startSynthNote(midi, 440 * Math.pow(2, (midi - 69) / 12), audioCtx.currentTime, vel, key);
   }
@@ -660,7 +660,6 @@ const songApp = (() => {
     // play along / listen: a one-bar count-in when starting at the start of a bar
     if (P.mode === 'free' && P.beat < 1e-6 && !P.loop) clearMistakes(); // a new take from the top
     if (P.mode !== 'listen' && !T) startTake();
-    if (follows() && T && !T.ref && !viewOffset()) leadIn(); // started with play: the first notes are timed by the clock
     if (!follows() && Math.abs(P.beat - barStartOf(P.beat)) < 1e-6) startCountIn();
     S.last = P.beat; // the first beat (and notes on it) sound on the next frame
     $('song-btn-play').textContent = 'Pause'; $('song-btn-play').setAttribute('aria-pressed', 'true');
@@ -677,7 +676,7 @@ const songApp = (() => {
     P.playing = false;
     if (P.countIn) P.beat = P.countInEnd; // pausing during a count-in returns to where it was counting in to
     P.countIn = false;
-    if (T) T.ref = T.lead = null; // nothing is timed across a pause
+    if (T) T.ref = null; // nothing is timed across a pause
     P.hold = null;
     resetSound();
     $('song-btn-play').textContent = 'Play'; $('song-btn-play').setAttribute('aria-pressed', 'false');
@@ -716,7 +715,7 @@ const songApp = (() => {
     if (to <= P.beat + 1e-6) return false;
     P.beat = to;
     resetSound(); // the other hand's backing of the skipped bars does not all sound at once
-    if (T) { T.ref = null; if (T.lead) leadIn(); } // not played yet: the clock goes on from here
+    if (T) T.ref = null; // not played yet: the next note starts the pulse again
     return true;
   }
 
@@ -766,7 +765,6 @@ const songApp = (() => {
         const from = P.beat;
         seek(P.loop.start); skipEmptyBars(); startTake(); // every pass is a take of its own
         if (P.guide) startGlide(from);
-        else if (follows()) leadIn(); // the clock runs on into the next pass
         if (!follows()) startCountIn();
       }
       else finishSong();
@@ -865,7 +863,7 @@ const songApp = (() => {
       // waiting for your first note (after a jump, a new part, a retry): the next step counts however far it is
       const want = step && (!P.playing || step.t - P.beat <= EARLY_WAIT) && step.notes.find(x => x.midi === n && P.noteState.get(x) !== 'hit');
       if (want) {
-        if (!P.playing) { if (step.t - P.beat > EARLY_WAIT) P.beat = step.t; play(); if (T) T.lead = null; } // just start playing: the song follows (this note sets the pulse)
+        if (!P.playing) { if (step.t - P.beat > EARLY_WAIT) P.beat = step.t; play(); } // just start playing: the song follows (this note sets the pulse)
         P.noteState.set(want, 'hit');
         takeHit(want, step);
         flashDone(n);
@@ -887,7 +885,7 @@ const songApp = (() => {
   // Free mode: the note goes to the step being played. A note of the next step (and not of this one) means the rest
   // of this step was skipped. A step is done once it has as many notes as it asks for, right or wrong.
   function freeNote(n) {
-    if (!P.playing) { play(); if (T) T.lead = null; } // first: after the end, play() starts again from the top; this note sets the pulse
+    if (!P.playing) { play(); } // first: after the end, play() starts again from the top; this note sets the pulse
     let step = P.steps[P.stepIdx];
     if (!step) return;
     const open = s => s.notes.find(x => x.midi === n && P.noteState.get(x) !== 'hit');
@@ -1010,16 +1008,14 @@ const songApp = (() => {
   const timingScale = strict => TIMING_LOOSE + (TIMING_TIGHT - TIMING_LOOSE) * strict;
 
   function startTake() {
-    T = { strict: timingStrictness(), from: P.beat, timing: new Map(), onsets: new Map(), ref: null, lead: null, streak: 0, extras: [], offs: new Map() };
+    T = { strict: timingStrictness(), from: P.beat, timing: new Map(), onsets: new Map(), ref: null, streak: 0, extras: [], offs: new Map() };
     P.extraMarks = []; P.playedMarks = [];
     P.report = null; // the last report stays on screen until this take's replaces it
   }
   function endTake() { T = null; P.report = null; }
   const clockNow = () => P.beat + (performance.now() - lastFrame) / 1000 * beatsPerSecond(); // not just the last frame's
-  // Wait / free started with play (not by a note): until your first note there is no pulse of yours, so the first
-  // step is timed by when the falling notes reach it, if they fell at least LEAD_MIN beats (you could see it coming).
-  const LEAD_MIN = 1;
-  function leadIn() { T.lead = { t: P.beat, time: performance.now() / 1000 }; }
+  // Wait / free: the first note of a take (and after a pause / skipped empty bars) is not timed: it sets your pulse,
+  // so it is never early or late (nor late for the falling notes having waited at it, markPlayed).
   function takeHit(note, step) {
     if (!T) return;
     const k = timingScale(T.strict);
@@ -1027,12 +1023,11 @@ const songApp = (() => {
     if (!T.onsets.has(step)) { // the first note of a step times it; a chord's other notes share it
       const now = performance.now() / 1000;
       let t = { dev: null, tol: ON_TIME * k };
-      const ref = T.ref || (T.lead && step.t - T.lead.t >= LEAD_MIN - 1e-6 ? T.lead : null);
+      const ref = T.ref;
       if (ref && ref.t < step.t) {
         const want = (step.t - ref.t) / beatsPerSecond();
         t = { dev: now - ref.time - want, tol: Math.min(MAX_SLACK * k, Math.max(ON_TIME * k, GAP_SLACK * want)) };
       }
-      T.lead = null; // from here on, your own pulse
       const off = t.dev !== null && Math.abs(t.dev) > t.tol;
       T.streak = off ? T.streak + 1 : 0;
       if (!off || T.streak >= 2 || t.dev > HESITATION) { T.ref = { t: step.t, time: now }; T.streak = 0; }
@@ -1049,7 +1044,7 @@ const songApp = (() => {
     const t = T.timing.get(note);
     let off = t && t.dev !== null && Math.abs(t.dev) > t.tol, at = note.start;
     if (P.mode === 'play') at = clockNow();
-    else if (step && P.hold && P.hold.step === step) {
+    else if (step && P.hold && P.hold.step === step && t && t.dev !== null) { // the first note sets the pulse: never late
       const waited = (performance.now() - P.hold.at) / 1000;
       if (waited > LATE_WAIT) { off = true; at = note.start + waited * beatsPerSecond(); }
     }

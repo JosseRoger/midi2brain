@@ -321,7 +321,12 @@ function evaluate() {
 
 function noteOn(n, playSound = true, velocity = null)  { // velocity 0..1 from MIDI; other inputs have none
   if (micOffer) { micOffer = false; updateMicOfferHint(); } // mic offer only lasts until the first note is played
-  if (mode === 'theory' || mode === 'contact' || mode === 'routine') return;
+  if (mode === 'theory' || mode === 'contact') return;
+  if (mode === 'routine') { // the Routine tab only plays the note (held: so a note waiting for the audio unlock still sounds)
+    if (playSound && !held.has(n)) playPianoNote(n, velocity);
+    held.add(n);
+    return;
+  }
   if (mode === 'songs') { // the Songs tab plays (its own sound) and grades the notes itself (js/songs.js)
     const fresh = !held.has(n);
     held.add(n);
@@ -337,9 +342,9 @@ function noteOn(n, playSound = true, velocity = null)  { // velocity 0..1 from M
 }
 function noteOff(n, stopSound = true) {
   if (stopSound) releasePianoNote(n); // keeps ringing while the sustain pedal is down (js/audio.js)
-  if (mode === 'theory' || mode === 'contact' || mode === 'routine') return;
+  if (mode === 'theory' || mode === 'contact') return;
   held.delete(n);
-  if (mode === 'songs') return;
+  if (mode === 'songs' || mode === 'routine') return;
   updatePressedKeysDisplay();
   if (mode === 'scales') scaleNoteOff(); else evaluate();
 }

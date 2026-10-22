@@ -283,7 +283,7 @@ function playPianoNote(noteNum, velocity = null) {
 }
 
 function startPianoNote(noteNum, velocity = null) {
-  stopPianoNote(noteNum);
+  stopPianoNote(noteNum, true);
 
   const freq = 440 * Math.pow(2, (noteNum - 69) / 12);
   const now = audioCtx.currentTime;
@@ -460,7 +460,8 @@ function startPianoNote(noteNum, velocity = null) {
   }
 }
 
-function stopPianoNote(noteNum) {
+// again: the same key is struck again, so its damper doesn't land (no release noise) and the old note gives way quickly.
+function stopPianoNote(noteNum, again = false) {
   if (activeVoices.has(noteNum)) {
     const voice = activeVoices.get(noteNum);
     const soundType = $('sound-type').value;
@@ -470,7 +471,9 @@ function stopPianoNote(noteNum) {
       const now = audioCtx.currentTime;
       voice.gain.gain.cancelScheduledValues(now);
       voice.gain.gain.setValueAtTime(Math.max(voice.gain.gain.value, 0.0001), now);
-      const releaseTime = voice.release || (voice.synth ? Math.max(0.02, SYNTH.release) : isSustained ? 0.35 : 0.08);
+      let releaseTime = voice.release || (voice.synth ? Math.max(0.02, SYNTH.release) : isSustained ? 0.35 : 0.08);
+      if (voice.release && again) releaseTime = Math.min(releaseTime, 0.12);
+      if (voice.damper != null && !again) playPianoRelease(voice.damper, voice.vel, now);
       voice.gain.gain.exponentialRampToValueAtTime(0.0001, now + releaseTime);
       if (voice.oscs) voice.oscs.forEach(o => o.stop(now + releaseTime));
       else voice.osc.stop(now + releaseTime);
@@ -649,15 +652,19 @@ function startSynthNote(noteNum, freq, now, velocity = null, key = noteNum) {
 // Full version on a desktop: stereo, 4 layers, 10 s (~250 MB); light version or a touch device: one channel,
 // 2 layers, 6 s (~40 MB). Each saved apart (piano-settings-full / -light). A change reloads the recordings, the old
 // ones playing until the new ones are in.
-// The layers keep their recorded levels (soft ones are quieter); within a layer the velocity shades the loudness a
-// little. Each note plays the nearest recording (re-pitched by at most a semitone and a half) in the active layer
-// nearest its velocity, or the nearest layer already loaded. Same voice map, so stopPianoNote(key) ends it.
+// The layers keep their recorded levels (soft ones are quieter). Each note plays the nearest recording (re-pitched by
+// at most a semitone) blended from the two active layers around its velocity (so the tone brightens smoothly as you
+// play harder, not in steps); below the softest / above the hardest the velocity shades that layer's loudness a
+// little; while loading, the nearest layer already in. Same voice map, so stopPianoNote(key) ends it.
+// Letting go: the note dies away as damped strings do, slower in the bass (pianoRelease; no dampers above F#6), and the
+// key's release noise plays softly (the damper landing, Salamander's rel1..rel88 as samples/piano/rel<midi>.mp3,
+// playPianoRelease; Piano popup → Key release, keyNoise), not when the key is struck again (stopPianoNote again).
 const PIANO_SAMPLE_NAMES = ['C', 'Ds', 'Fs', 'A'];
 const PIANO_LAYERS = [{ file: 'v4', at: 0.23 }, { file: 'v8', at: 0.48 }, { file: 'v12', at: 0.73 }, { file: 'v16', at: 0.98 }];
 const PIANO_LAYER_SETS = { 4: [0, 1, 2, 3], 2: [1, 3], 1: [2] };
 const PIANO_DEFAULT_VEL = 0.7; // mouse, computer keys, mic: no velocity
 const PIANO_RATE = 32000, PIANO_FADE = 1.5;
-const PIANO_DEFAULTS = { full: { stereo: true, layers: 4, length: 10 }, light: { stereo: false, layers: 2, length: 6 } };
+const PIANO_DEFAULTS = { full: { stereo: true, layers: 4, length: 10, keyNoise: true }, light: { stereo: false, layers: 2, length: 6, keyNoise: true } };
 const pianoProfile = () => LITE || IS_TOUCH ? 'light' : 'full'; // LITE is set (start screen) before the samples load
 function pianoSettings() {
   const p = pianoProfile();
@@ -665,14 +672,17 @@ function pianoSettings() {
   try { saved = JSON.parse(localStorage.getItem('piano-settings-' + p)) || {}; } catch { /* storage unavailable */ }
   return { ...PIANO_DEFAULTS[p], ...saved };
 }
-function setPianoSettings(values) {
+function setPianoSettings(values, reload = true) { // reload: the setting changes which recordings are loaded
   try { localStorage.setItem('piano-settings-' + pianoProfile(), JSON.stringify({ ...pianoSettings(), ...values })); } catch { /* ignore */ }
-  reloadPianoSamples();
+  if (reload) reloadPianoSamples();
 }
 const pianoMemoryMB = s => Math.round(62 * s.layers * (s.stereo ? 1 : 0.5) * Math.min(1, s.length / 10)); // measured: 4 layers, stereo, 10 s ≈ 250 MB
 let pianoSamples = new Map(); // midi → [AudioBuffer per layer]
 let pianoSamplesPrev = null; // while reloading after a settings change: the old recordings, still played
 let pianoSamplesLoading = null, pianoGen = 0;
+const pianoReleases = new Map(); // midi → AudioBuffer of the key's release noise (kept across settings changes)
+const PIANO_RELEASE_VOL = 0.03; // of a note's loudness: just a hint
+const pianoRelease = midi => midi >= 91 ? 1.2 : 0.25 + 0.75 * Math.max(0, 88 - midi) / 67; // s: ~1 s in the bass, 0.6 s at middle C
 const pianoLayerFor = (v, set = PIANO_LAYER_SETS[pianoSettings().layers] || PIANO_LAYER_SETS[4]) =>
   set.reduce((best, i) => Math.abs(PIANO_LAYERS[i].at - v) < Math.abs(PIANO_LAYERS[best].at - v) ? i : best, set[0]);
 async function preparePianoSample(buf, { stereo, length }) { // → PIANO_RATE, starting at the attack, faded at the end
@@ -702,8 +712,16 @@ function loadPianoSamples() {
   const notes = [], jobs = [];
   for (let midi = 21; midi <= 108; midi += 3) notes.push(midi);
   notes.sort((a, b) => Math.abs(a - 60) - Math.abs(b - 60));
-  layerOrder.forEach(layer => notes.forEach(midi => jobs.push({ midi, layer })));
-  const loadOne = ({ midi, layer }) => {
+  layerOrder.forEach((layer, i) => {
+    notes.forEach(midi => jobs.push({ midi, layer }));
+    if (i === 0) for (let midi = 21; midi <= 90; midi++) if (!pianoReleases.has(midi)) jobs.push({ midi, release: true }); // small: right after the first layer
+  });
+  const loadOne = ({ midi, layer, release }) => {
+    if (release) return fetch(`samples/piano/rel${midi}.mp3`)
+      .then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status)))
+      .then(data => audioCtx.decodeAudioData(data))
+      .then(buf => pianoReleases.set(midi, buf))
+      .catch(() => { /* missing: that key lets go silently */ });
     const file = PIANO_SAMPLE_NAMES[(midi % 12) / 3] + (Math.floor(midi / 12) - 1) + PIANO_LAYERS[layer].file;
     return fetch(`samples/piano/${file}.mp3`)
       .then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status)))
@@ -729,29 +747,51 @@ function reloadPianoSamples() { // after a settings change (only if the recordin
 function startSampledPiano(noteNum, now, velocity = null, key = noteNum) {
   const nearest = Math.max(21, Math.min(108, 21 + Math.round((noteNum - 21) / 3) * 3));
   const v = Math.max(0.05, Math.min(1, velocity == null ? PIANO_DEFAULT_VEL : velocity));
-  const want = pianoLayerFor(v);
-  let buf = null, used = want;
-  for (const map of [pianoSamples, pianoSamplesPrev]) { // nearest loaded layer, the new recordings first
+  const set = PIANO_LAYER_SETS[pianoSettings().layers] || PIANO_LAYER_SETS[4];
+  const below = [...set].reverse().find(i => PIANO_LAYERS[i].at <= v), above = set.find(i => PIANO_LAYERS[i].at >= v);
+  let parts = []; // [buffer, gain]
+  for (const map of [pianoSamples, pianoSamplesPrev]) { // the new recordings first
     const layers = (map && map.get(nearest)) || [];
-    for (let d = 0; d < PIANO_LAYERS.length && !buf; d++) {
-      if (layers[want + d]) { buf = layers[want + d]; used = want + d; } else if (layers[want - d]) { buf = layers[want - d]; used = want - d; }
+    if (below != null && above != null && layers[below] && layers[above]) { // between two layers: blend them
+      const w = above === below ? 1 : (v - PIANO_LAYERS[below].at) / (PIANO_LAYERS[above].at - PIANO_LAYERS[below].at);
+      parts = [[layers[below], 0.75 * (1 - w)], [layers[above], 0.75 * w]].filter(([, g]) => g > 0.01);
+    } else { // past either end, or still loading: the loaded layer nearest the velocity, its level shaded
+      const want = pianoLayerFor(v, set);
+      for (let d = 0; d < PIANO_LAYERS.length && !parts.length; d++) {
+        const used = layers[want + d] ? want + d : layers[want - d] ? want - d : -1;
+        if (used >= 0) parts = [[layers[used], 0.75 * Math.pow(v / PIANO_LAYERS[used].at, 0.6)]];
+      }
     }
-    if (buf) break;
+    if (parts.length) break;
   }
-  if (!buf || Math.abs(nearest - noteNum) > 2) {
+  if (!parts.length || Math.abs(nearest - noteNum) > 2) {
     loadPianoSamples();
     startSynthNote(noteNum, 440 * Math.pow(2, (noteNum - 69) / 12), now, velocity, key);
     return;
   }
-  const src = audioCtx.createBufferSource();
-  src.buffer = buf;
-  src.playbackRate.value = Math.pow(2, (noteNum - nearest) / 12);
   const out = audioCtx.createGain();
-  out.gain.setValueAtTime(0.75 * Math.pow(v / PIANO_LAYERS[used].at, 0.6), now); // the layer has its own level: only shade it
-  src.connect(out);
+  out.gain.setValueAtTime(1, now);
+  const srcs = parts.map(([buf, g]) => {
+    const src = audioCtx.createBufferSource(), level = audioCtx.createGain();
+    src.buffer = buf;
+    src.playbackRate.value = Math.pow(2, (noteNum - nearest) / 12);
+    level.gain.value = g;
+    src.connect(level).connect(out);
+    src.start(now);
+    return src;
+  });
   routeAudio(out);
+  activeVoices.set(key, { osc: srcs[0], oscs: srcs, gain: out, release: pianoRelease(noteNum), damper: noteNum <= 90 ? noteNum : null, vel: v });
+}
+function playPianoRelease(midi, v, now) { // the damper landing on the strings as the key comes up
+  const buf = pianoReleases.get(midi);
+  if (!buf || !audioCtx || !pianoSettings().keyNoise) return; // Piano popup → Key release
+  const src = audioCtx.createBufferSource(), level = audioCtx.createGain();
+  src.buffer = buf;
+  level.gain.value = 0.75 * PIANO_RELEASE_VOL * Math.pow(v, 0.8);
+  src.connect(level);
+  routeAudio(level);
   src.start(now);
-  activeVoices.set(key, { osc: src, oscs: [src], gain: out, release: noteNum >= 89 ? 0.8 : 0.22 }); // no dampers up top
 }
 
 // Synth popup: same look/behaviour as the chord category menus; sits next to the Piano sound menu.
@@ -904,6 +944,12 @@ function startSampledPiano(noteNum, now, velocity = null, key = noteNum) {
   stereo.title = 'Both microphones of the recording. Off: one microphone, half the memory';
   const stereoInput = stereo.querySelector('input');
   stereoInput.addEventListener('change', () => { setPianoSettings({ stereo: stereoInput.checked }); refreshPiano(); });
+  const keyNoise = document.createElement('label');
+  keyNoise.className = 'toggle-label-row';
+  keyNoise.innerHTML = `<span class="toggle-switch"><input type="checkbox" aria-label="Key release"><span class="toggle-slider"></span></span> Key release`;
+  keyNoise.title = 'The soft sound of the damper landing on the strings when you let go of a key';
+  const keyNoiseInput = keyNoise.querySelector('input');
+  keyNoiseInput.addEventListener('change', () => setPianoSettings({ keyNoise: keyNoiseInput.checked }, false));
   const choiceRow = (text, key, options, tip) => { // a label + segmented buttons, like the synth's wave picker
     const r = document.createElement('div');
     r.className = 'synth-row'; r.title = tip;
@@ -934,11 +980,12 @@ function startSampledPiano(noteNum, now, velocity = null, key = noteNum) {
     reloadPianoSamples(); refreshPiano();
   });
   pButtons.appendChild(pReset);
-  pItems.append(stereo, layersRow, lengthRow, mem, pButtons);
+  pItems.append(stereo, keyNoise, layersRow, lengthRow, mem, pButtons);
   document.body.appendChild(pItems);
   function refreshPiano() { // the controls show the settings of this version (full desktop / light or touch)
     const s = pianoSettings();
     stereoInput.checked = s.stereo;
+    keyNoiseInput.checked = s.keyNoise;
     [layersRow, lengthRow].forEach(r => r.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.value === s[r.dataset.key]))));
     mem.textContent = `≈ ${pianoMemoryMB(s)} MB of memory` + (pianoProfile() === 'light' ? ' (light / mobile settings)' : '');
   }
